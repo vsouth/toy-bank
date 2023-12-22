@@ -1,8 +1,14 @@
 package ru.vsouth;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
+
 public class Main {
-    public static void main(String[] args) {
-        BackSystem backSystem = new BackSystem(1000);
+    public static void main(String[] args) throws InterruptedException {
+        BackSystem backSystem = new BackSystem(new AtomicLong(1000));
         FrontSystem frontSystem = new FrontSystem(2);
 
         Thread requestHandler1 = new Thread(
@@ -10,33 +16,41 @@ public class Main {
         Thread requestHandler2 = new Thread(
                 new RequestHandler("Обработчик №2", frontSystem, backSystem));
 
-        Thread client1 = new Thread(
-                new Client("Клиент 1",
-                new Request("Клиент 1", 500, RequestType.CREDIT),
-                frontSystem));
 
-        Thread client2 = new Thread(
-                new Client("Клиент 2",
-                new Request("Клиент 2", 1000, RequestType.REPAYMENT),
-                frontSystem));
+        List<Client> clientList = new ArrayList<>();
+        var amounts = List.of(500, 1000, 2000, 1500);
+        for (int i = 0; i < amounts.size(); i++) {
+            RequestType requestType = i % 2 == 0 ? RequestType.CREDIT : RequestType.REPAYMENT;
+            String clientName = "Клиент " + (i + 1);
+            Request request = new Request(clientName, amounts.get(i), requestType);
+            Client client = new Client(clientName, request, frontSystem);
+            clientList.add(client);
+        }
 
-        Thread client3 = new Thread(
-                new Client("Клиент 3",
-                new Request("Клиент 3", 2000, RequestType.CREDIT),
-                frontSystem));
 
-        Thread client4 = new Thread(
-                new Client("Клиент 4",
-                new Request("Клиент 4", 1500, RequestType.REPAYMENT),
-                frontSystem));
 
-        client1.start();
-        client2.start();
-        client3.start();
-        client4.start();
+        ExecutorService clientService = Executors.newFixedThreadPool(6);
+        clientService.submit(requestHandler1);
+        clientService.submit(requestHandler2);
 
-        requestHandler1.start();
-        requestHandler2.start();
+
+
+        for (Client client : clientList) {
+            clientService.submit(client);
+        }
+
+
+
+        clientService.submit(() -> {
+            try {
+                Thread.sleep(3000);
+                System.out.printf("Итоговый баланс банка: %s",backSystem.getBalance());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+
 
     }
 }

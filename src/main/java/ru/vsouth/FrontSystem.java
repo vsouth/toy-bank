@@ -1,44 +1,22 @@
 package ru.vsouth;
 
-import java.util.ArrayDeque;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class FrontSystem {
-    private final ArrayDeque<Request> requestQueue;
-    private final int queueCapacity;
+    private final ArrayBlockingQueue<Request> requestQueue;
 
     public FrontSystem(int queueCapacity) {
-        this.queueCapacity = queueCapacity;
-        this.requestQueue = new ArrayDeque<>(queueCapacity);
+        this.requestQueue = new ArrayBlockingQueue<>(queueCapacity);
     }
 
     public void putRequest(Request request) {
-        synchronized (requestQueue) {
-            while (requestQueue.size() >= queueCapacity) {
-                try {
-                    requestQueue.wait();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            requestQueue.add(request);
-            System.out.printf("Фронтальная система приняла заявку - %s\n", request.getClientThreadName());
-            requestQueue.notifyAll();
-        }
+        requestQueue.add(request);
+        System.out.printf("Фронтальная система приняла заявку - %s\n", request.getClientThreadName());
     }
 
-    public Request takeRequest() {
-        synchronized (requestQueue) {
-            while (requestQueue.size() == 0) {
-                try {
-                    requestQueue.wait();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            Request request = requestQueue.pop();
-            System.out.printf("Фронтальная система передала заявку - %s\n", request.getClientThreadName());
-            requestQueue.notifyAll();
-            return request;
-        }
+    public Request takeRequest() throws InterruptedException {
+        Request request = requestQueue.take();
+        System.out.printf("Фронтальная система передала заявку - %s\n", request.getClientThreadName());
+        return request;
     }
 }
