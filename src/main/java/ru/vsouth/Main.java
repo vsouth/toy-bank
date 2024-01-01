@@ -8,7 +8,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        BackSystem backSystem = new BackSystem(new AtomicLong(1000));
+        BackSystem backSystem = new BackSystem(new AtomicLong(0));
+
+        List<OuterSystem> outerSystems = new ArrayList<>(List.of(
+                new OuterSystem("Outer system 1", backSystem, 500, 7000),
+                new OuterSystem("Outer system 2", backSystem, 200, 6000),
+                new OuterSystem("Outer system 3", backSystem, 300, 9000)
+        ));
+
         FrontSystem frontSystem = new FrontSystem(2);
 
         Thread requestHandler1 = new Thread(
@@ -17,31 +24,39 @@ public class Main {
                 new RequestHandler("Обработчик №2", frontSystem, backSystem));
 
 
-        List<Client> clientList = new ArrayList<>();
-        var amounts = List.of(500, 1000, 2000, 1500);
-        for (int i = 0; i < amounts.size(); i++) {
-            RequestType requestType = i % 2 == 0 ? RequestType.CREDIT : RequestType.REPAYMENT;
-            String clientName = "Клиент " + (i + 1);
-            Request request = new Request(clientName, amounts.get(i), requestType);
-            Client client = new Client(clientName, request, frontSystem);
-            clientList.add(client);
-        }
+        List<Client> clientList = new ArrayList<>(List.of(
+                new Client("Клиент 1",
+                        new Request("Клиент 1", 500, RequestType.CREDIT),
+                        frontSystem),
+                new Client("Клиент 2",
+                        new Request("Клиент 2", 1000, RequestType.REPAYMENT),
+                        frontSystem),
+                new Client("Клиент 3",
+                        new Request("Клиент 3",2000, RequestType.CREDIT),
+                        frontSystem),
+                new Client("Клиент 4",
+                        new Request("Клиент 4", 1500, RequestType.REPAYMENT),
+                        frontSystem)
+        ));
 
 
 
-        ExecutorService clientService = Executors.newFixedThreadPool(6);
-        clientService.submit(requestHandler1);
-        clientService.submit(requestHandler2);
+        ExecutorService executorService = Executors.newFixedThreadPool(6);
 
+        executorService.invokeAll(outerSystems);
+        System.out.printf("Баланс банка: %s\n", backSystem.getBalance());
+
+
+        executorService.submit(requestHandler1);
+        executorService.submit(requestHandler2);
 
 
         for (Client client : clientList) {
-            clientService.submit(client);
+            executorService.submit(client);
         }
 
 
-
-        clientService.submit(() -> {
+        executorService.submit(() -> {
             try {
                 Thread.sleep(3000);
                 System.out.printf("Итоговый баланс банка: %s",backSystem.getBalance());
